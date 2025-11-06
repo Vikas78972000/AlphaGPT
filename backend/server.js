@@ -1,20 +1,19 @@
 // server.js
 import express from 'express';
-import 'dotenv/config'; // loads .env automatically
+import 'dotenv/config';
 import cors from 'cors';
 import mongoose from 'mongoose';
-import serverless from 'serverless-http'; // keep for serverless deployments
+import serverless from 'serverless-http';
 import chatRoutes from './routes/chat.js';
 
 const app = express();
-
-// middlewares
 app.use(cors());
 app.use(express.json());
 
-// routes
+// ---------- Mount Routes ----------
 app.use('/api', chatRoutes);
 
+// ---------- Test Route ----------
 app.post('/api/test', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
@@ -33,58 +32,77 @@ app.post('/api/test', async (req, res) => {
     });
 
     const data = await response.json();
-    res.json({ reply: data.choices?.[0]?.message?.content || "No response" });
+    res.json({ reply: data.choices?.[0]?.message?.content || 'No response' });
   } catch (err) {
-    console.error("Fetch Error:", err);
-    res.status(500).json({ error: err.message || 'Unknown error' });
+    console.error('Fetch Error:', err);
+    res.status(500).json({ error: err?.message || 'Unknown error' });
   }
 });
 
-// ---------- MongoDB connect helper ----------
-const connectDB = async () => {
-  // Avoid reconnects on serverless cold starts
-  if (mongoose.connection.readyState !== 0) return;
+// ---------- MongoDB Safe Connection ----------
+mongoose.set('bufferCommands', false); // fail fast instead of buffering
 
-  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
-  if (!mongoUri) {
-    console.error("❌ Missing MONGODB_URI (or MONGO_URI) in environment.");
-    return;
-  }
+let isConnected = false;
 
-  try {
-    await mongoose.connect(mongoUri, {
-      // options optional depending on mongoose version
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log("✅ MongoDB Connected");
-  } catch (err) {
-    console.error("❌ MongoDB Error:", err.message || err);
-    // do not process.exit in serverless; just log
-  }
+const MONGO_OPTIONS = {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000, // 5s timeout if cannot connect
+  socketTimeoutMS: 45000,
 };
 
-// ensure DB is connected at cold start (top-level await is OK in ESM/node >= 14+)
-await connectDB();
+async function connectDBOnce() {
+  if (isConnected || mongoose.connection.readyState === 1) return;
 
-// ---------- Start server for local development only ----------
-const PORT = process.env.PORT || 8080;
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  if (!mongoUri) throw new Error('❌ MONGODB_URI not set in environment');
 
-
-// Detect environment where serverless provider will call the exported handler.
-// If we're NOT in a serverless platform, start a local HTTP server.
-const runningInServerless =
-  !!process.env.VERCEL || // Vercel sets this
-  !!process.env.AWS_LAMBDA_FUNCTION_NAME || // AWS Lambda
-  !!process.env.FUNCTIONS_WORKER_RUNTIME; // Azure Functions
-
-if (!runningInServerless) {
-  app.listen(PORT, () => {
-    console.log(`🚀 Local server running on port ${PORT}`);
-  });
-} else {
-  console.log("🔁 Running in serverless environment — exporting handler (no app.listen)");
+  try {
+    await mongoose.connect(mongoUri, MONGO_OPTIONS);
+    isConnected = true;
+    console.log('✅ MongoDB connected');
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err?.message || err);
+    throw err;
+  }
 }
 
-// Export handler for serverless platforms (Vercel, Netlify, Lambda via serverless-http)
-export const handler = serverless(app);
+// ---------- Serverless Handler ----------
+async function serverHandler(req, res) {
+  try {
+    await connectDBOnce(); // connect lazily on first request (serverless)
+    return app(req, res);
+  } catch (err) {
+    console.error('❌ Function invocation failed:', err?.stack || err);
+    res.status(500).json({
+      error: 'internal_server_error',
+      message: err?.message || 'unknown',
+    });
+  }
+}
+
+// ---------- Local Development (non-serverless) ----------
+const PORT = process.env.PORT || 8080;
+const runningInServerless =
+  !!process.env.VERCEL ||
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  !!process.env.FUNCTIONS_WORKER_RUNTIME;
+
+if (!runningInServerless) {
+  (async () => {
+    try {
+      await connectDBOnce(); // wait for DB connection before starting
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Local server running on port ${PORT}`);
+      });
+    } catch (err) {
+      console.error('Failed to start server due to DB error:', err?.message || err);
+      process.exit(1);
+    }
+  })();
+} else {
+  console.log('🔁 Running in serverless environment — exporting handler');
+}
+
+// ---------- Export Default Handler for Vercel ----------
+export default serverless(serverHandler);
