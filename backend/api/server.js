@@ -4,7 +4,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import serverless from 'serverless-http';
-import chatRoutes from './routes/chat.js';
+import chatRoutes from '../routes/chat.jss';
 
 const app = express();
 app.use(cors());
