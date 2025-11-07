@@ -8,7 +8,7 @@ import chatRoutes from '../routes/chat.jss';
 
 const app = express();
 app.use(cors({
-  origin: 'https://alpha-gpt-backend.vercel.app'
+  origin: 'https://alpha-gpt-git-main-vikas-yadavs-projects-cb59469a.vercel.app'
 }));
 app.use(express.json());
 
