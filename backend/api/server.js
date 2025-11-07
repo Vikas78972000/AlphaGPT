@@ -7,7 +7,9 @@ import serverless from 'serverless-http';
 import chatRoutes from '../routes/chat.jss';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://alpha-gpt-backend.vercel.app'
+}));
 app.use(express.json());
 
 // ---------- Mount Routes ----------
