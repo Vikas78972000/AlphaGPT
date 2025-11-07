@@ -4,11 +4,11 @@ import 'dotenv/config';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import serverless from 'serverless-http';
-import chatRoutes from '../routes/chat.jss';
+import chatRoutes from '../routes/chat.js';
 
 const app = express();
 app.use(cors({
-  origin: 'https://alpha-gpt-git-main-vikas-yadavs-projects-cb59469a.vercel.app'
+  origin: 'https://alpha-gpt-git-main-vikas-yadavs-projects-cb59469a.vercel.app', credentials: true
 }));
 app.use(express.json());
 
