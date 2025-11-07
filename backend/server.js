@@ -14,30 +14,30 @@ app.use(express.json());
 app.use('/api', chatRoutes);
 
 // ---------- Test Route ----------
-app.post('/api/test', async (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message is required' });
+// app.post('/api/test', async (req, res) => {
+//   const { message } = req.body;
+//   if (!message) return res.status(400).json({ error: 'Message is required' });
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
-        messages: [{ role: 'user', content: message }],
-      }),
-    });
+//   try {
+//     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+//       method: 'POST',
+//       headers: {
+//         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify({
+//         model: 'google/gemini-2.0-flash-exp:free',
+//         messages: [{ role: 'user', content: message }],
+//       }),
+//     });
 
-    const data = await response.json();
-    res.json({ reply: data.choices?.[0]?.message?.content || 'No response' });
-  } catch (err) {
-    console.error('Fetch Error:', err);
-    res.status(500).json({ error: err?.message || 'Unknown error' });
-  }
-});
+//     const data = await response.json();
+//     res.json({ reply: data.choices?.[0]?.message?.content || 'No response' });
+//   } catch (err) {
+//     console.error('Fetch Error:', err);
+//     res.status(500).json({ error: err?.message || 'Unknown error' });
+//   }
+// });
 
 // ---------- MongoDB Safe Connection ----------
 mongoose.set('bufferCommands', false); // fail fast instead of buffering
