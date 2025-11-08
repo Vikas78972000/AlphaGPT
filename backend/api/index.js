@@ -16,31 +16,38 @@ app.use(
 
 app.use(express.json());
 
-let isConnected = false;
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
-const CONNECT_OPTS = {
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  tls: true,
-  tlsAllowInvalidCertificates: true, // Dev only
-};
 
-async function connectDBOnce() {
-  if (isConnected || mongoose.connection.readyState === 1) return;
-  if (!MONGO_URI) throw new Error('MONGODB_URI not configured');
+let cached = global.mongoose;
 
-  try {
-    await mongoose.connect(MONGO_URI, CONNECT_OPTS);
-    isConnected = true;
-    console.log('✅ MongoDB connected');
-  } catch (err) {
-    throw err;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+  if (cached.conn) {
+    return cached.conn;
   }
+
+  if (!cached.promise) {
+    const options = {
+      maxPoolSize: 5,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      tls: true,
+      tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development',
+    };
+    cached.promise = mongoose.connect(MONGO_URI, options).then((mongoose) => {
+      return mongoose;
+    });
+  }
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
 
 app.use(async (req, res, next) => {
   try {
-    await connectDBOnce();
+    await connectDB();
     next();
   } catch (err) {
     res.status(500).json({ error: 'db_connection_failed', message: err.message });
@@ -54,5 +61,5 @@ if (!process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Local server on port ${PORT}`));
 }
 
-// Export only the handler for serverless functions
+// Export only the serverless handler
 export const handler = serverless(app);
