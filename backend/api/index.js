@@ -62,5 +62,6 @@ if (!process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.VERCEL) {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Local server on port ${PORT}`));
 }
-
-export const handler = serverless(app);
+module.exports = app;
+// export const handler = serverless(app);
+module.exports.handler = serverless(app);
