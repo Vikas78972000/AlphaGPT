@@ -16,18 +16,13 @@ app.use(
 
 app.use(express.json());
 
-// IMPORTANT: Do NOT disable buffering globally to avoid the 'find() before connection' error
-// Remove or comment out: mongoose.set('bufferCommands', false);
-
 let isConnected = false;
-
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 const CONNECT_OPTS = {
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
   tls: true,
-  tlsAllowInvalidCertificates: true, // For dev only; remove in production
-  // Do not disable bufferCommands globally here; leave default true
+  tlsAllowInvalidCertificates: true, // Dev only
 };
 
 async function connectDBOnce() {
@@ -43,16 +38,12 @@ async function connectDBOnce() {
   }
 }
 
-// Middleware to ensure connection established before request handlers run
 app.use(async (req, res, next) => {
   try {
     await connectDBOnce();
     next();
   } catch (err) {
-    res.status(500).json({
-      error: 'db_connection_failed',
-      message: err.message,
-    });
+    res.status(500).json({ error: 'db_connection_failed', message: err.message });
   }
 });
 
@@ -62,6 +53,6 @@ if (!process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.VERCEL) {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Local server on port ${PORT}`));
 }
-module.exports = app;
-// export const handler = serverless(app);
-module.exports.handler = serverless(app);
+
+// Export only the handler for serverless functions
+export const handler = serverless(app);
